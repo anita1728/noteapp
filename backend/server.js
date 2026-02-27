@@ -7,61 +7,49 @@ import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import cors from "cors";
 
-const app = express();
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-const PORT = process.env.PORT || 3000;
 
+const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PORT = 3000;
+
+
+app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin: "http://localhost:5173"
+}));
+
+// ------------------
+// __dirname Fix (ESM)
+// ------------------
+
 
 // ------------------
 // MongoDB Connection
 // ------------------
-
-const connectDB = async () => {
-    const cloudUrl = process.env.MONGO_URL;
-    const localUrl = "mongodb://127.0.0.1:27017/note_app";
-
-    let urlToConnect = cloudUrl;
-
-    if (!cloudUrl || cloudUrl.includes("<username>")) {
-        console.log("No cloud MONGO_URL found, attempting local connection...");
-        urlToConnect = localUrl;
-    }
-
-    try {
-        await mongoose.connect(urlToConnect);
-        console.log(`MongoDB Connected: ${urlToConnect === localUrl ? "Local" : "Cloud"}`);
-    } catch (err) {
-        console.error("Database Connection Error:", err.message);
-        if (urlToConnect === localUrl) {
-            console.log("TIP: Ensure your local MongoDB service is running (e.g., 'net start MongoDB') or provide a valid cloud MONGO_URL in .env");
-        } else {
-            console.log("TIP: Check your cloud MONGO_URL in .env");
-        }
-    }
-};
-
-connectDB();
-
+mongoose.connect(process.env.MONGO_URL)
+    .then(() => console.log("MongoDB Atlas Connected"))
+    .catch(err => {
+        console.error("MongoDB connection error:", err);
+        process.exit(1); // stop server if DB fails
+    });
 // ------------------
 // Schema & Model
 // ------------------
-const noteSchema = new mongoose.Schema({
+const todoSchema = new mongoose.Schema({
     title: {
         type: String,
         required: true,
         trim: true
     },
-    content: {
-        type: String,
-        required: true,
-        trim: true
+    completed: {
+        type: Boolean,
+        default: false
     }
 });
 
-const Note = mongoose.model("Note", noteSchema);
+const Todo = mongoose.model("Todo", todoSchema);
 
 // ------------------
 // ROUTES
@@ -70,8 +58,8 @@ const Note = mongoose.model("Note", noteSchema);
 // READ ALL
 app.get("/api/notes", async (req, res) => {
     try {
-        const notes = await Note.find().sort({ createdAt: -1 });
-        res.json(notes);
+        const todos = await Todo.find().sort({ createdAt: -1 });
+        res.json(todos);
     } catch (error) {
         res.status(500).json({ message: "Server error" });
     }
@@ -80,35 +68,43 @@ app.get("/api/notes", async (req, res) => {
 // CREATE
 app.post("/api/notes", async (req, res) => {
     try {
-        const { title, content } = req.body;
+        const { title } = req.body;
 
-        if (!title || !content || !title.trim() || !content.trim()) {
-            return res.status(400).json({ message: "Title and content are required" });
+        if (!title || !title.trim()) {
+            return res.status(400).json({ message: "Title is required" });
         }
 
-        const newNote = await Note.create({ title: title.trim(), content: content.trim() });
-        res.status(201).json(newNote);
+        const newTodo = await Todo.create({ title: title.trim() });
+        res.status(201).json(newTodo);
 
     } catch (error) {
         res.status(500).json({ message: "Server error" });
     }
 });
 
-// UPDATE
+// UPDATE (toggle or custom update)
 app.put("/api/notes/:id", async (req, res) => {
     try {
-        const { title, content } = req.body;
+        const { title, completed } = req.body;
 
-        const note = await Note.findById(req.params.id);
-        if (!note) {
-            return res.status(404).json({ message: "Note not found" });
+        const todo = await Todo.findById(req.params.id);
+        if (!todo) {
+            return res.status(404).json({ message: "Todo not found" });
         }
 
-        if (title !== undefined) note.title = title.trim();
-        if (content !== undefined) note.content = content.trim();
+        if (title !== undefined) {
+            if (!title.trim()) {
+                return res.status(400).json({ message: "Title cannot be empty" });
+            }
+            todo.title = title.trim();
+        }
 
-        await note.save();
-        res.json(note);
+        if (completed !== undefined) {
+            todo.completed = completed;
+        }
+
+        await todo.save();
+        res.json(todo);
 
     } catch (error) {
         res.status(400).json({ message: "Invalid ID" });
@@ -118,10 +114,10 @@ app.put("/api/notes/:id", async (req, res) => {
 // DELETE
 app.delete("/api/notes/:id", async (req, res) => {
     try {
-        const deleted = await Note.findByIdAndDelete(req.params.id);
+        const deleted = await Todo.findByIdAndDelete(req.params.id);
 
         if (!deleted) {
-            return res.status(404).json({ message: "Note not found" });
+            return res.status(404).json({ message: "Todo not found" });
         }
 
         res.json({ message: "Deleted successfully" });
@@ -134,6 +130,7 @@ app.delete("/api/notes/:id", async (req, res) => {
 // ------------------
 // SERVER START
 // ------------------
+
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
