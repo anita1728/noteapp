@@ -1,0 +1,48 @@
+# Node.js
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependency directories
+jspm_packages/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build directories
+dist/
+build/
+
+# IDE or editor folders
+.vscode/
+.idea/
+*.sublime-workspace
+
+# MacOS system files
+.DS_Store
+
+# Windows system files
+Thumbs.db
+
+# npm package logs
+package-lock.json
+
+# Yarn package lock (if you're using yarn)
+# yarn.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Next.js build output
+.next/
+
+# SvelteKit build output
+.svelte-kit/
+
+# React Native specific
+.expo/
